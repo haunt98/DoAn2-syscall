@@ -1,0 +1,116 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{vietnam}
+\usepackage{indentfirst}
+\usepackage{url}
+\usepackage{listings}
+
+\lstset{language=sh,basicstyle=\ttfamily,breaklines=true}
+
+\begin{document}
+
+\title{BÁO CÁO ĐỒ ÁN 2}
+\author{Nguyễn Trần Hậu - MSSV 1612180
+\and Nguyễn Chí Thức - MSSV 1612677}
+\date{1/12/2018}
+\maketitle
+
+\begin{abstract}
+Hướng dẫn build syscall và hook trong Linux.
+Nhóm em sử dụng distro Debian bản 8 dành cho 32bit với kernel bản 3.16.61 để thực hiện đồ án này.
+\end{abstract}
+
+
+
+\section{Syscall}
+Để tạo một syscall trong hệ điều hành Linux: \\
+$\rightarrow$ Cần phải lấy source của kernel \\
+$\rightarrow$ Thêm syscal vào source \\
+$\rightarrow$ Build kernel từ source vừa chỉnh sửa \\
+$\rightarrow$ Boot distro Linux bằng kernel vừa build. \\
+
+\subsection{Chuẩn bị source}
+
+Trong thư mục nộp bài có thư mục \textit{src}.
+Trong thư mục \textit{src}, có 3 thư mục con là \textit{hook}, \textit{syscall}, và \textit{test\_syscall} \\
+
+Down kernel source về, rồi giải nén vào \textit{/urs/src/}
+\begin{lstlisting}
+wget https://cdn.kernel.org/pub/linux/kernel/v3.x/linux-3.16.61.tar.xz
+sudo tar -xvf linux-3.16.61.tar.xz -C /usr/src/
+\end{lstlisting}
+
+Copy thư mục \textit{pidtoname} và \textit{pnametoid} trong thư mục \textit{syscall} vào thư mục kernel source vừa giải nén.
+Đây là 2 syscall để thêm vào kernel. \\
+
+
+Thêm vào cuối dòng \textit{core-y} trong file \textit{Makefile} của thư mục kernel source tên của 2 syscall như sau
+\begin{lstlisting}
+core-y += kernel/ mm/ fs/ ipc/ security/ crypto/ block/ pnametoid/ pidtoname/
+\end{lstlisting}
+
+
+Vào thư mục \textit{arch/x86/syscalls/} của thư mục kernel source
+và thêm vào cuối file \textit{syscall\_32.tbl}
+\begin{lstlisting}
+xxx i386 pnametoid sys_pnametoid
+yyy i386 pidtoname sys_pidtoname
+\end{lstlisting}
+lấy số của dòng cuối cùng trong file \textit{syscall\_32.tbl}, cộng 1 ra xxx, cộng tiếp cho 1 ra yyy
+
+Vào thư mục \textit{include/linux/} của thư mục kernel source
+và thêm vào cuối file \textit{syscalls.h}
+\begin{lstlisting}
+asmlinkage int sys_pnametoid(char *name);
+asmlinkage int sys_pidtoname(int pid, char *buf, int len);
+\end{lstlisting}
+
+\subsection{Build và cài đặt kernel}
+Quay lại thư mục kernel source, build kernel
+\begin{lstlisting}
+sudo make menuconfig
+sudo make
+\end{lstlisting}
+
+Sau khi build thành công, cài đặt kernel mới rồi khởi động lại máy
+\begin{lstlisting}
+sudo make modules_install install
+sudo reboot
+\end{lstlisting}
+
+\subsection{Test}
+Vào thư mục \textit{test\_syscall} trong thư mục \textit{src}, chạy test
+\begin{lstlisting}
+make test_pnametoid
+make test_pidtoname
+\end{lstlisting}
+
+\section{Hook}
+Hook là một kernel module, thay đổi syscall của hệ điều hành bằng syscall định nghĩa sẵn trong hook. \\
+Trong hook module: \\
+Lúc \textit{init\_module}, thay syscall cũ bằng syscall mới trong syscall table \\
+Lúc \textit{exit\_moduel}, thay syscall mới bằng syscall cũ trong syscall table \\
+
+Vào thư mục \textit{hook} trong thư mục \textit{src}, build hook
+\begin{lstlisting}
+make
+\end{lstlisting}
+
+Sau khi build hook thành công, cài đặt hook là kernel module vào hệ điều hành
+\begin{lstlisting}
+sudo insmod hook_module.ko
+\end{lstlisting}
+
+Để kiểm tra hook hoạt động, vào \textit{dmesg} để đọc log.
+
+\begin{thebibliography}{9}
+
+\bibitem{t1} Basics of Making a Rootkit: From syscall to hook! \\
+\url{https://uwnthesis.wordpress.com/2016/12/26/basics-of-making-a-rootkit-from-syscall-to-hook/}
+
+\bibitem{t2} Linux kernel articles \\
+\url{https://blog.guillaume-gomez.fr/Linux-kernel/1/1}
+
+\end{thebibliography}
+
+\end{document}
